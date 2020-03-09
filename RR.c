@@ -27,7 +27,7 @@ static int init=0;
 //Queue where we will have the threads ready to execute
 struct queue ready*;
 
-/*void function_thread(int sec)
+void function_thread(int sec)
 {
     //time_t end = time(NULL) + sec;
     while(running->remaining_ticks)
@@ -35,7 +35,7 @@ struct queue ready*;
       //do something
     }
     mythread_exit();
-}*/
+}
 
 
 /* Initialize the thread library */
@@ -130,10 +130,9 @@ void mythread_exit() {
   printf("*** THREAD %d FINISHED\n", (current->tid));
   t_state[(current->tid)].state = FREE;
   free(t_state[(current->tid)].run_env.uc_stack.ss_sp);
-  TCB *aux=current;
   TCB* next = scheduler();
   current=next;
-  activator(next, aux);
+  activator(next);
 
 }
 
@@ -143,10 +142,9 @@ void mythread_timeout(int tid) {
     printf("*** THREAD %d EJECTED\n", tid);
     t_state[tid].state = FREE;
     free(t_state[tid].run_env.uc_stack.ss_sp);
-    TCB *aux=current;
     TCB* next = scheduler();
     current=next;
-    activator(next, aux);
+    activator(next);
 
 }
 
@@ -155,6 +153,7 @@ TCB* scheduler()
 {
 
   if(queue_empty(ready)){
+      
     //If we don´t have more threads on the queue we have finished
     printf("*** FINISH\n");
     exit(0);
@@ -191,15 +190,17 @@ void timer_interrupt(int sig)
     //We stablish current to the thread scheduler returned
     current = next->tid;
     //We call activator to do the SWAPCONTEXT
-    activator(next, previous);
+    activator(next);
 
   }
 
 }
 
 /* Activator */
-void activator(TCB* next, TCB* actual)
+void activator(TCB* next)
 {
+    
+  TCB * actual = running;  
   if((actual->tid) != (next->tid)){
 
     //SWAPCONTEXT
