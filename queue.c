@@ -247,4 +247,3 @@ void queue_print_element(struct my_struct* p )
   else
       printf("Can not print NULL struct \n");
 }
-
