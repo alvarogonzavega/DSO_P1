@@ -230,6 +230,3 @@ void activator(TCB* next)
   setcontext (&(next->run_env));
   printf("mythread_free: After setcontext, should never get here!!...\n");	
 }
-
-
-
