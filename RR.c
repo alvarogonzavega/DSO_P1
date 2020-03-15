@@ -127,7 +127,7 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
 /* Free terminated thread and exits */
 void mythread_exit() {
 
-  printf("*** THREAD %d FINISHED\n", (current->tid));
+  printf("*** THREAD %d FINISHED\n", (mythread_gettid()));
   t_state[(current->tid)].state = FREE;
   free(t_state[(current->tid)].run_env.uc_stack.ss_sp);
   TCB* next = scheduler();
@@ -153,7 +153,7 @@ TCB* scheduler()
 {
 
   if(queue_empty(ready)){
-      
+
     //If we don´t have more threads on the queue we have finished
     printf("*** FINISH\n");
     exit(0);
@@ -164,6 +164,25 @@ TCB* scheduler()
   TCB * new = dequeue(ready);
   return new;
 
+}
+
+/* Sets the priority of the calling thread */
+void mythread_setpriority(int priority) {
+  int tid = mythread_gettid();
+  t_state[tid].priority = priority;
+}
+
+/* Returns the priority of the calling thread */
+int mythread_getpriority(int priority) {
+  int tid = mythread_gettid();
+  return t_state[tid].priority;
+}
+
+
+/* Get the current thread id.  */
+int mythread_gettid(){
+  if (!init) { init_mythreadlib(); init=1;}
+  return current;
 }
 
 
@@ -199,8 +218,8 @@ void timer_interrupt(int sig)
 /* Activator */
 void activator(TCB* next)
 {
-    
-  TCB * actual = running;  
+
+  TCB * actual = running;
   if((actual->tid) != (next->tid)){
 
     //SWAPCONTEXT
