@@ -194,7 +194,7 @@ void timer_interrupt(int sig)
   if((running->ticks)==0){
 
     //We re-establish the ticks to QUANTUM_TICKS
-    running ->tick = QUANTUM_TICKS;
+    running ->ticks = QUANTUM_TICKS;
     //We are going to call to enqueue the actual thread
     //So we need to disable interruptions
     disable_interrupt();
