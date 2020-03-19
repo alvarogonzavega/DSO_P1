@@ -254,7 +254,7 @@ void activator(TCB* next)
 
     running = next;
     printf("*** THREAD %d TERMINATED: SETCONTEXT OF %d\n", (actual->tid), (next->tid));
-    if(setcontext (&(next->tid))==-1){
+    if(setcontext (&(next->run_env))==-1){
 
       printf("ERROR DURING SETCONETXT!!");
       exit(-1);
