@@ -25,7 +25,7 @@ static int current = 0;
 static int init=0;
 
 //Queue where we will have the threads ready to execute
-struct queue ready*;
+struct queue* ready;
 
 void function_thread(int sec)
 {
@@ -140,10 +140,10 @@ void disk_interrupt(int sig)
 void mythread_exit() {
 
   printf("*** THREAD %d FINISHED\n", (mythread_gettid()));
-  t_state[(current->tid)].state = FREE;
-  free(t_state[(current->tid)].run_env.uc_stack.ss_sp);
+  t_state[(mythread_gettid())].state = FREE;
+  free(t_state[(mythread_gettid())].run_env.uc_stack.ss_sp);
   TCB* next = scheduler();
-  current=next;
+  current=next->tid;
   activator(next);
 
 }
@@ -155,7 +155,7 @@ void mythread_timeout(int tid) {
     t_state[tid].state = FREE;
     free(t_state[tid].run_env.uc_stack.ss_sp);
     TCB* next = scheduler();
-    current=next;
+    current=next->tid;
     activator(next);
 
 }
@@ -215,7 +215,7 @@ void timer_interrupt(int sig)
     //So we need to disable interruptions
     disable_interrupt();
     //Aux to call in activator
-    previous = running;
+    TCB * previous = running;
     //Enqueue the thread
     enqueue(ready, previous);
     //We can enable interruptions now
