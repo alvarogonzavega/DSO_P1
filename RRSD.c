@@ -286,7 +286,7 @@ void mythread_timeout(int tid) {
     free(t_state[tid].run_env.uc_stack.ss_sp);
     disable_interrupt();
     TCB* next = scheduler();
-    enable_interrupt();
+    enable_interrupt();_
     current=next->tid;
     activator(next);
 
@@ -302,6 +302,7 @@ TCB* scheduler()
     //If we don´t have more threads on the queues of the priority lists
     current = idle.tid;
     return &idle;
+
 
   }else if(queue_empty(readyHIGH) && queue_empty(readyLOW) && queue_empty(ready)){
 
@@ -320,7 +321,8 @@ TCB* scheduler()
   }else{
 
     //We have a High Priority thread
-    //TODO
+    TCB * new = dequeue(readyHIGH);
+    return new;
 
   }
 

@@ -146,7 +146,7 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
 
 
     }else{ //The actual thread is High Priority
-
+      //TODO comprobar si tiempo hilo actual > tiempo hilo nuevo
       //First of all we disable interruptions
       disable_interrupt();
       //Now we enqueue the thread
@@ -225,7 +225,8 @@ TCB* scheduler()
   }else{
 
     //We have a High Priority thread
-    //TODO
+    TCB * new = dequeue(readyHIGH);
+    return new;
 
   }
 
@@ -315,7 +316,7 @@ void timer_interrupt(int sig)
 
   }
 
-  //TODO
+  //TODO SJF
 
 }
 
