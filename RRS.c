@@ -182,7 +182,9 @@ void mythread_exit() {
   printf("*** THREAD %d FINISHED\n", (mythread_gettid()));
   t_state[(mythread_gettid())].state = FREE;
   free(t_state[(mythread_gettid())].run_env.uc_stack.ss_sp);
+  disable_interrupt();
   TCB* next = scheduler();
+  enable_interrupt();
   current=next->tid;
   activator(next);
 
@@ -193,7 +195,9 @@ void mythread_timeout(int tid) {
     printf("*** THREAD %d EJECTED\n", tid);
     t_state[tid].state = FREE;
     free(t_state[tid].run_env.uc_stack.ss_sp);
+    disable_interrupt();
     TCB* next = scheduler();
+    enable_interrupt();
     current=next->tid;
     activator(next);
 
