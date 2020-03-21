@@ -237,7 +237,24 @@ TCB* scheduler()
   }else{
 
     //We have a High Priority thread
-    TCB * new = dequeue(readyHIGH);
+    //Find the next lowest REMAINING execution time thread in high priority
+    struct my_struct* seeker = readyHIGH->head;
+    TCB* new = NULL;
+    int lowest_ticks = 2000000;
+    while(seeker != NULL)
+    {
+      TCB* thr = seeker->data;
+      if(thr->remaining_ticks < lowest_ticks) {
+        new = thr;
+      }
+    }
+
+    if (new == NULL || new->priority != HIGH_PRIORITY) {
+      // It shouldnt get here
+      printf("ERROR: failed at scheduler\n");
+      exit(-1);
+    }
+
     return new;
 
   }
