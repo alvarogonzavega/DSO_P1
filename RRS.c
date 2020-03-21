@@ -10,7 +10,7 @@
 #include "queue.h"
 
 TCB* scheduler();
-void activator();
+void activator(TCB *next);
 void timer_interrupt(int sig);
 
 
@@ -207,6 +207,7 @@ TCB* scheduler()
   if(queue_empty(readyLOW) && queue_empty(readyHIGH)){
 
     //If we don´t have more threads on the queues we have finished
+    enable_interrupt();
     printf("*** FINISH\n");
     exit(0);
 
@@ -271,10 +272,10 @@ void timer_interrupt(int sig)
         previous = running;
         //Enqueue the thread
         enqueue(readyLOW, previous);
-        //We can enable interruptions now
-        enable_interrupt();
         //We call scheduler to get the new thread
         TCB * next = scheduler();
+        //We can enable interruptions now
+        enable_interrupt();
         //We stablish current to the thread scheduler returned
         current = next->tid;
         //We call activator to do the SWAPCONTEXT
@@ -293,10 +294,10 @@ void timer_interrupt(int sig)
       previous = running;
       //Enqueue the thread
       enqueue(readyLOW, previous);
-      //We can enable interruptions now
-      enable_interrupt();
       //We call scheduler to get the new thread
       TCB * next = scheduler();
+      //We can enable interruptions now
+      enable_interrupt();
       //We stablish current to the thread scheduler returned
       current = next->tid
       //We print the info

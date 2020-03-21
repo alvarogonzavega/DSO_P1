@@ -10,7 +10,7 @@
 #include "queue.h"
 
 TCB* scheduler();
-void activator();
+void activator(TCB *next);
 void timer_interrupt(int sig);
 
 
@@ -62,7 +62,8 @@ void init_mythreadlib()
   running = &t_state[0];
   ready = queue_new();
 
-  /* Initialize clock interrupts */
+  /* Initialize disk & clock interrupts */
+  disk_interrupt();
   init_interrupt();
 }
 
@@ -72,8 +73,8 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
 {
   int i;
 
-  if(priority >LOW_PRIORITY){
-    //Round Robin can only be LOW_PRIORITY
+  if(priority !=LOW_PRIORITY || priority!=HIGH_PRIORITY){
+    //If the priority is invalid
     printf("The priority is invalid!!");
     exit(-1);
 
@@ -167,6 +168,7 @@ TCB* scheduler()
   if(queue_empty(ready)){
 
     //If we don´t have more threads on the queue we have finished
+    enable_interrupt();
     printf("*** FINISH\n");
     exit(0);
 
@@ -215,13 +217,13 @@ void timer_interrupt(int sig)
     //So we need to disable interruptions
     disable_interrupt();
     //Aux to call in activator
-    TCB * previous = running;
+    previous = running;
     //Enqueue the thread
     enqueue(ready, previous);
-    //We can enable interruptions now
-    enable_interrupt();
     //We call scheduler to get the new thread
     TCB * next = scheduler();
+    //We can enable interruptions now
+    enable_interrupt();
     //We stablish current to the thread scheduler returned
     current = next->tid;
     //We call activator to do the SWAPCONTEXT
@@ -264,6 +266,5 @@ void activator(TCB* next)
 
 
   }
-  /*setcontext (&(next->run_env));
-  printf("mythread_free: After setcontext, should never get here!!...\n");*/
+
 }
