@@ -215,7 +215,7 @@ TCB* scheduler()
 
     //If we do not have any High Priority threads we are in Round Robin
     //We simply pass the first element
-    TCB * new = dequeue(ready);
+    TCB * new = dequeue(readyLOW);
     return new;
 
   }else{
@@ -258,6 +258,7 @@ void timer_interrupt(int sig)
 
   if(running->priority == LOW_PRIORITY){
 
+    TCB *previous;
     if(queue_empty(readyHIGH)){ //If we only have Low Priority threads
 
       (running->ticks)--;
@@ -299,9 +300,9 @@ void timer_interrupt(int sig)
       //We can enable interruptions now
       enable_interrupt();
       //We stablish current to the thread scheduler returned
-      current = next->tid
+      current = next->tid;
       //We print the info
-      printf("*** THREAD %i PREEMTED: SET CONTEXT OF %i\n", running->tid, current);
+      printf("*** THREAD %d PREEMTED: SET CONTEXT OF %d\n", (running->tid), (current));
       //We call activator to do the SWAPCONTEXT
       activator(next);
 

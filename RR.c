@@ -217,7 +217,7 @@ void timer_interrupt(int sig)
     //So we need to disable interruptions
     disable_interrupt();
     //Aux to call in activator
-    previous = running;
+    TCB *previous = running;
     //Enqueue the thread
     enqueue(ready, previous);
     //We call scheduler to get the new thread
