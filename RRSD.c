@@ -177,6 +177,8 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
       enqueue(readyLOW, running);
       //Finally we enable interruptions again
       enable_interrupt();
+      //Print the message
+      printf("*** THREAD %i PREEMTED: SET CONTEXT OF %i\n", (running->tid), i);
       //Then we call the Activator
       activator(high);
 
@@ -373,61 +375,42 @@ void timer_interrupt(int sig)
 {
 
   TCB *previous;
-  if(running->priority == LOW_PRIORITY){
+  running->remaining_ticks--;
 
-    if(queue_empty(readyHIGH)){ //If we only have Low Priority threads
+  // Check if running thread is finished
+  if (running->remaining_ticks == 0) {
+    // Running thread is finished, changing to the next
+    disable_interrupt();
+    previous = running;
 
-      (running->ticks)--;
-      if((running->ticks)==0){
-
-        //We re-establish the ticks to QUANTUM_TICKS
-        running ->ticks = QUANTUM_TICKS;
-        //We are going to call to enqueue the actual thread
-        //So we need to disable interruptions
-        disable_interrupt();
-        //Aux to call in activator
-        previous = running;
-        //Enqueue the thread
-        enqueue(readyLOW, previous);
-        //We call scheduler to get the new thread
-        TCB * next = scheduler();
-        //We can enable interruptions now
-        enable_interrupt();
-        //We stablish current to the thread scheduler returned
-        current = next->tid;
-        //We call activator to do the SWAPCONTEXT
-        activator(next);
-
-      }
-
-    }else{ //If we have a High Priority thread
-
-      //We re-establish the ticks to QUANTUM_TICKS
-      running ->ticks = QUANTUM_TICKS;
-      //We are going to call to enqueue the actual thread
-      //So we need to disable interruptions
-      disable_interrupt();
-      //Aux to call in activator
-      previous = running;
-      //Enqueue the thread
-      enqueue(readyLOW, previous);
-      //We call scheduler to get the new thread
-      TCB * next = scheduler();
-      //We can enable interruptions now
-      enable_interrupt();
-      //We stablish current to the thread scheduler returned
-      current = next->tid;
-      //We print the info
-      printf("*** THREAD %d PREEMTED: SET CONTEXT OF %d\n", (running->tid), (current));
-      //We call activator to do the SWAPCONTEXT
-      activator(next);
-
-
-    }
-
+    // Put new thread
+    TCB * next = scheduler();
+    enable_interrupt();
+    printf("***   THREAD %i TERMINATED: SETCONTEXT OF %i", running->tid, next->tid);
+    current = next->tid;
+    activator(next);
   }
 
-  //TODO
+
+  // For low priority threads, reduce its slice time
+  if (running->priority == HIGH_PRIORITY) 
+  {
+    running->ticks--;
+
+    if (running->ticks == 0) {
+      // Thread slice is finished, change to the next thread
+      disable_interrupt();
+      previous = running;
+      enqueue(readyLOW, previous);
+
+      // Put new thread
+      TCB * next = scheduler();
+      enable_interrupt();
+      printf("***   SWAPCONTEXT  FROM %i TO %i", running->tid, next->tid);
+      current = next->tid;
+      activator(next);
+    }
+  }
 
 }
 
@@ -440,6 +423,7 @@ void activator(TCB* next)
 
     //SWAPCONTEXT
     running = next;
+    // TODO esto no deberia estar aqui?
     printf("*** SWAPCONTEXT FROM %d TO %d\n", (actual->tid), (next->tid));
     if(swapcontext (&(actual->run_env), &(next->run_env))==-1){
 

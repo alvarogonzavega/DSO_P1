@@ -144,6 +144,8 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
       enqueue(readyLOW, running);
       //Finally we enable interruptions again
       enable_interrupt();
+      //Print the message
+      printf("*** THREAD %i PREEMTED: SET CONTEXT OF %i\n", (running->tid), i);
       //Then we call the Activator
       activator(high);
 
@@ -293,10 +295,11 @@ void timer_interrupt(int sig)
   if(running->priority == LOW_PRIORITY){
 
     TCB *previous;
-    if(queue_empty(readyHIGH)){ //If we only have Low Priority threads
+    if(queue_empty(readyHIGH)){ //If we only have Low Priority threads (as supposed)
 
       (running->ticks)--;
-      if((running->ticks)==0){
+      if((running->ticks)==0)
+      {
 
         //We re-establish the ticks to QUANTUM_TICKS
         running ->ticks = QUANTUM_TICKS;
@@ -311,14 +314,16 @@ void timer_interrupt(int sig)
         TCB * next = scheduler();
         //We can enable interruptions now
         enable_interrupt();
-        //We stablish current to the thread scheduler returned
+        //We establish current to the thread scheduler returned
         current = next->tid;
         //We call activator to do the SWAPCONTEXT
         activator(next);
 
       }
 
-    }else{ //If we have a High Priority thread
+    }
+    else
+    { //If we have a High Priority thread ready
 
       //We re-establish the ticks to QUANTUM_TICKS
       running ->ticks = QUANTUM_TICKS;
@@ -335,8 +340,6 @@ void timer_interrupt(int sig)
       enable_interrupt();
       //We stablish current to the thread scheduler returned
       current = next->tid;
-      //We print the info
-      printf("*** THREAD %d PREEMTED: SET CONTEXT OF %d\n", (running->tid), (current));
       //We call activator to do the SWAPCONTEXT
       activator(next);
 
@@ -346,7 +349,7 @@ void timer_interrupt(int sig)
   }
 
   //TODO SJF
-
+  
 }
 
 /* Activator */
