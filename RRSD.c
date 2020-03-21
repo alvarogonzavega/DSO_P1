@@ -111,7 +111,7 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
 {
   int i;
 
-  if(priority !=LOW_PRIORITY || priority != HIGH_PRIORITY){
+  if(priority !=LOW_PRIORITY && priority != HIGH_PRIORITY){
     //Invalid priority
     printf("The priority is invalid!!");
     exit(-1);
@@ -286,7 +286,7 @@ void mythread_timeout(int tid) {
     free(t_state[tid].run_env.uc_stack.ss_sp);
     disable_interrupt();
     TCB* next = scheduler();
-    enable_interrupt();_
+    enable_interrupt();
     current=next->tid;
     activator(next);
 

@@ -63,7 +63,7 @@ void init_mythreadlib()
   ready = queue_new();
 
   /* Initialize disk & clock interrupts */
-  disk_interrupt();
+  init_disk_interrupt();
   init_interrupt();
 }
 
@@ -73,7 +73,7 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
 {
   int i;
 
-  if(priority !=LOW_PRIORITY || priority!=HIGH_PRIORITY){
+  if(priority !=LOW_PRIORITY && priority!=HIGH_PRIORITY){
     //If the priority is invalid
     printf("The priority is invalid!!");
     exit(-1);

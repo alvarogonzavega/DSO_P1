@@ -75,7 +75,7 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
 {
   int i;
 
-  if(priority !=LOW_PRIORITY || priority != HIGH_PRIORITY){
+  if(priority !=LOW_PRIORITY && priority != HIGH_PRIORITY){
     //Invalid priority
     printf("The priority is invalid!!");
     exit(-1);
@@ -84,6 +84,7 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
 
   if (!init) { init_mythreadlib(); init=1;}
 
+  // Put new thread in free position of the thread control table
   for (i=0; i<N; i++)
     if (t_state[i].state == FREE) break;
 
@@ -114,6 +115,8 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
   t_state[i].run_env.uc_stack.ss_size = STACKSIZE;
   t_state[i].run_env.uc_stack.ss_flags = 0;
   makecontext(&t_state[i].run_env, fun_addr,2,seconds);
+
+
   if(priority==LOW_PRIORITY){ //Low priority thread
 
     //We are going to enqueue the thread
@@ -146,17 +149,26 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
 
 
     }else{ //The actual thread is High Priority
-      //TODO comprobar si tiempo hilo actual > tiempo hilo nuevo
-      //First of all we disable interruptions
-      disable_interrupt();
-      //Now we enqueue the thread
-      enqueue(readyHIGH, high);
-      //Finally we enable interruptions again
-      enable_interrupt();
+
+      //Check SJF priority and change the running thread if it has less execution time
+      //We assume the SJF policy has to compare the remaining ticks instead of the total
+      if (running->remaining_ticks > high->execution_total_ticks) {
+
+        //We are going to re-establish the QUANTUM_TICKS
+        running->ticks = QUANTUM_TICKS;
+        //First of all we disable interruptions
+        disable_interrupt();
+        //Now we enqueue the running thread
+        enqueue(readyHIGH, running);
+        //Finally we enable interruptions again
+        enable_interrupt();
+        //Then we call the Activator
+        activator(high);
+        
+      }
 
     }
-
-
+    
   }
 
   return i;
