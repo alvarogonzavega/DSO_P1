@@ -193,14 +193,15 @@ void disk_interrupt(int sig)
 /* Free terminated thread and exits */
 void mythread_exit() {
 
-  printf("*** THREAD %d FINISHED\n", (mythread_gettid()));
+  printf("*** THREAD %d FINISHED", (mythread_gettid()));
   t_state[(mythread_gettid())].state = FREE;
   free(t_state[(mythread_gettid())].run_env.uc_stack.ss_sp);
   disable_interrupt();
   TCB* next = scheduler();
   enable_interrupt();
   current=next->tid;
-  activator(next);
+  running = next;
+  printf(": SETCONTEXT OF %d\n", (mythread_gettid()));
 
 }
 
@@ -295,6 +296,8 @@ void timer_interrupt(int sig)
   if(running->priority == LOW_PRIORITY){
 
     TCB *previous;
+    (running->remaining_ticks)--;
+    if((running->remaining_ticks)==0) mythread_exit();
     if(queue_empty(readyHIGH)){ //If we only have Low Priority threads (as supposed)
 
       (running->ticks)--;
@@ -320,29 +323,6 @@ void timer_interrupt(int sig)
         activator(next);
 
       }
-
-    }
-    else
-    { //If we have a High Priority thread ready
-
-      //We re-establish the ticks to QUANTUM_TICKS
-      running ->ticks = QUANTUM_TICKS;
-      //We are going to call to enqueue the actual thread
-      //So we need to disable interruptions
-      disable_interrupt();
-      //Aux to call in activator
-      previous = running;
-      //Enqueue the thread
-      enqueue(readyLOW, previous);
-      //We call scheduler to get the new thread
-      TCB * next = scheduler();
-      //We can enable interruptions now
-      enable_interrupt();
-      //We stablish current to the thread scheduler returned
-      current = next->tid;
-      //We call activator to do the SWAPCONTEXT
-      activator(next);
-
 
     }
 
@@ -371,7 +351,7 @@ void activator(TCB* next)
 
   }
 
-  if((actual->tid)==FREE){
+  /*if((actual->tid)==FREE){
 
     running = next;
     printf("*** THREAD %d TERMINATED: SETCONTEXT OF %d\n", (actual->tid), (next->tid));
@@ -381,7 +361,7 @@ void activator(TCB* next)
       exit(-1);
 
 
-    }
+    }*/
 
 
   }
