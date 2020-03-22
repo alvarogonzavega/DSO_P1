@@ -1,0 +1,16 @@
+Conditions to check proper functionality of the implemented policies. Might not be complete.
+
+-- RR.c --
+
+1 Threads properly swap every QUANTUM_TICKS every time
+2 Thread finishes exactly after execution ticks and swaps to the next thread (doesnt wait for next slice)
+3 Threads swap in order
+4 Threads added during execution of others doesnt interfere and are run after at their turn
+
+-- RRS.c --
+
+1 High priority threads get executed first always and in SJF order
+2 H->H -- High priority threads added in between of the execution of a longer high priority thread, substitutes it after its addition. In other case, they get executed at their turn
+3 H->L -- A high priority thread added during the execution of a low one, substitutes it at the moment of creation and resets its tick value
+4 Ejected threads of high priority preserve their remaining ticks which is used to determine its order
+* Low priority threads alone run following the conditions in RR.c
