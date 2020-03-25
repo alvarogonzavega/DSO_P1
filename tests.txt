@@ -14,3 +14,11 @@ Conditions to check proper functionality of the implemented policies. Might not 
 3 H->L -- A high priority thread added during the execution of a low one, substitutes it at the moment of creation and resets its tick value
 4 Ejected threads of high priority preserve their remaining ticks which is used to determine its order
 * Low priority threads alone run following the conditions in RR.c
+
+-- RRSD.c --
+1 Create only one high priority thread that calls read_disk once with other low priority threads. Waits for disk_interrupt and then inmediately resumes
+2 Create two low level priority threads that call read_disk one before the other. Call two simultaneous read_disks. Threads then should wait for their turn
+3 Create two threads that call read_disk. Running thread should be "idle" until one disk_interrumpt arrives.
+* Threads that dont call read_disk work as RRS.c
+
+

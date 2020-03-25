@@ -29,13 +29,14 @@ struct queue* readyLOW;
 struct queue* readyHIGH;
 
 //We add a third queue for blocked threads
-struct queue* ready;
+struct queue* waiting;
 
 /* Thread control block for the idle thread */
 static TCB idle;
 
 static void idle_function()
 {
+  // TODO comprobar listos?
   while(1);
 }
 
@@ -98,7 +99,7 @@ void init_mythreadlib()
   running = &t_state[0];
   readyLOW = queue_new();
   readyHIGH = queue_new();
-  ready = queue_new();
+  waiting = queue_new();
 
   /* Initialize disk & clock interrupts */
   init_disk_interrupt();
@@ -216,7 +217,7 @@ int read_disk()
     //First we disable all interruptions
     disable_interrupt();
     //Now we enqueue it
-    enqueue(ready, running);
+    enqueue(waiting, running);
     //We call the scheduler
     TCB* new = scheduler();
     //Now we can enable interruptions
@@ -237,13 +238,13 @@ void disk_interrupt(int sig)
 {
 
   //We check if the waiting threads queue is empty
-  if(!(queue_empty(ready))){
+  if(!(queue_empty(waiting))){
 
     //We have a thread waiting to the disk interruption
     //First we disable the interruptions
     disable_interrupt();
     //Then we dequeue the thread
-    TCB* new = dequeue(ready);
+    TCB* new = dequeue(waiting);
     if((new->priority) != LOW_PRIORITY || (new->priority) != HIGH_PRIORITY){
 
       //If the thread on the waiting list is neither High or Low priority
@@ -299,21 +300,21 @@ void mythread_timeout(int tid) {
 TCB* scheduler()
 {
 
-  if(queue_empty(readyLOW) && queue_empty(readyHIGH)){
+  if(queue_empty(readyLOW) && queue_empty(readyHIGH) && !queue_empty(waiting)) {
 
     //If we don´t have more threads on the queues of the priority lists
     current = idle.tid;
     return &idle;
 
 
-  }else if(queue_empty(readyHIGH) && queue_empty(readyLOW) && queue_empty(ready)){
+  }else if(queue_empty(readyHIGH) && queue_empty(readyLOW) && queue_empty(waiting)) {
 
     //If we do not have any thread
     enable_interrupt();
     printf("*** FINISH\n");
     exit(1);
 
-  }else if(queue_empty(readyHIGH)){
+  }else if(queue_empty(readyHIGH)) {
 
     //If we do not have any High Priority threads we are in Round Robin
     //We simply pass the first element
