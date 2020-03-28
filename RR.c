@@ -27,6 +27,10 @@ static int init=0;
 //Queue where we will have the threads ready to execute
 struct queue* ready;
 
+// Next thread's id will have this value in order to not repeat ids.
+// Its assumed that there will never be 2^31 created threads during an execution.
+static int next_tid = 1;
+
 void function_thread(int sec)
 {
     //time_t end = time(NULL) + sec;
@@ -73,11 +77,10 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
 {
   int i;
 
+  // Check if the priority is valid
   if(priority !=LOW_PRIORITY && priority!=HIGH_PRIORITY){
-    //If the priority is invalid
     printf("The priority is invalid!!");
     exit(-1);
-
   }
 
   if (!init) { init_mythreadlib(); init=1;}
@@ -106,13 +109,15 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
     exit(-1);
   }
 
-  t_state[i].tid = i;
-  //We add the ticks
-  t_state[i].ticks = QUANTUM_TICKS;
+  t_state[i].tid = next_tid++;
   t_state[i].run_env.uc_stack.ss_size = STACKSIZE;
   t_state[i].run_env.uc_stack.ss_flags = 0;
+
+  /* MODIFICATIONS FOR RR */
+  //We add the ticks
+  t_state[i].ticks = QUANTUM_TICKS;
   makecontext(&t_state[i].run_env, fun_addr,2,seconds);
-  //We are going to enqueue the thread
+  
   TCB *thread = &t_state[i];
   //First of all we disable interruptions
   disable_interrupt();
@@ -120,7 +125,8 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
   enqueue(ready, thread);
   //Finally we enable interruptions again
   enable_interrupt();
-  return i;
+  
+  return next_tid-1;
 
 }
 /****** End my_thread_create() ******/
@@ -145,6 +151,7 @@ void mythread_exit() {
   free(t_state[(mythread_gettid())].run_env.uc_stack.ss_sp);
   disable_interrupt();
   TCB* next = scheduler();
+
   enable_interrupt();
   current=next->tid;
   activator(next);
@@ -212,9 +219,10 @@ int mythread_gettid(){
 void timer_interrupt(int sig)
 {
 
-  (running->ticks)--;
+  running->ticks--;
+  running->remaining_ticks--;
   if((running->ticks)==0){
-
+    
     //We re-establish the ticks to QUANTUM_TICKS
     running ->ticks = QUANTUM_TICKS;
     //We are going to call to enqueue the actual thread
@@ -242,33 +250,13 @@ void activator(TCB* next)
 {
 
   TCB * actual = running;
-  if((actual->tid) != (next->tid)){
+  //SWAPCONTEXT
+  running = next;
+  printf("*** SWAPCONTEXT FROM %d TO %d\n", (actual->tid), (next->tid));
 
-    //SWAPCONTEXT
-    running = next;
-    printf("*** SWAPCONTEXT FROM %d TO %d\n", (actual->tid), (next->tid));
-    if(swapcontext (&(actual->run_env), &(next->run_env))==-1){
-
-      printf("ERROR DURING THE SWAPCONTEXT!!");
-      exit(-1);
-
-    }
-
-  }
-
-  if((actual->tid)==FREE){
-
-    running = next;
-    printf("*** THREAD %d TERMINATED: SETCONTEXT OF %d\n", (actual->tid), (next->tid));
-    if(setcontext (&(next->run_env))==-1){
-
-      printf("ERROR DURING SETCONETXT!!");
-      exit(-1);
-
-
-    }
-
-
+  if(swapcontext (&(actual->run_env), &(next->run_env))==-1){
+    printf("ERROR DURING THE SWAPCONTEXT!!");
+    exit(-1);
   }
 
 }

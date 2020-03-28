@@ -28,6 +28,10 @@ static int init=0;
 struct queue* readyLOW;
 struct queue* readyHIGH;
 
+// Next thread's id will have this value in order to not repeat ids.
+// Its assumed that there will never be 2^31 created threads during an execution.
+static int next_tid = 1;
+
 void function_thread(int sec)
 {
     //time_t end = time(NULL) + sec;
@@ -109,7 +113,7 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
     exit(-1);
   }
 
-  t_state[i].tid = i;
+  t_state[i].tid = next_tid++;
   //We add the ticks
   t_state[i].ticks = QUANTUM_TICKS;
   t_state[i].run_env.uc_stack.ss_size = STACKSIZE;
@@ -145,7 +149,7 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
       //Finally we enable interruptions again
       enable_interrupt();
       //Print the message
-      printf("*** THREAD %i PREEMTED: SET CONTEXT OF %i\n", (running->tid), i);
+      printf("*** THREAD %i PREEMTED: SET CONTEXT OF %i\n", (running->tid), high->tid);
       //Then we call the Activator
       activator(high);
 
@@ -168,13 +172,9 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
         activator(high);
         
       }
-
-    }
-    
+    } 
   }
-
-  return i;
-
+  return next_tid-1;
 }
 /****** End my_thread_create() ******/
 
@@ -193,15 +193,14 @@ void disk_interrupt(int sig)
 /* Free terminated thread and exits */
 void mythread_exit() {
 
-  printf("*** THREAD %d FINISHED", (mythread_gettid()));
+  printf("*** THREAD %d FINISHED\n", (mythread_gettid()));
   t_state[(mythread_gettid())].state = FREE;
   free(t_state[(mythread_gettid())].run_env.uc_stack.ss_sp);
   disable_interrupt();
   TCB* next = scheduler();
+
   enable_interrupt();
-  current=next->tid;
-  running = next;
-  printf(": SETCONTEXT OF %d\n", (mythread_gettid()));
+  activator(next);
 
 }
 
@@ -213,7 +212,6 @@ void mythread_timeout(int tid) {
     disable_interrupt();
     TCB* next = scheduler();
     enable_interrupt();
-    current=next->tid;
     activator(next);
 
 }
@@ -293,17 +291,18 @@ int mythread_gettid(){
 void timer_interrupt(int sig)
 {
 
+  // Lower the remaining ticks of any thread
+  running->remaining_ticks--;
+
   if(running->priority == LOW_PRIORITY){
 
-    TCB *previous;
-    (running->remaining_ticks)--;
-    if((running->remaining_ticks)==0) mythread_exit();
-    if(queue_empty(readyHIGH)){ //If we only have Low Priority threads (as supposed)
+    running->ticks--;
 
-      (running->ticks)--;
+    if(queue_empty(readyHIGH)) { //If we only have Low Priority threads (as supposed)
+
       if((running->ticks)==0)
       {
-
+        TCB* previous;
         //We re-establish the ticks to QUANTUM_TICKS
         running ->ticks = QUANTUM_TICKS;
         //We are going to call to enqueue the actual thread
@@ -317,19 +316,19 @@ void timer_interrupt(int sig)
         TCB * next = scheduler();
         //We can enable interruptions now
         enable_interrupt();
-        //We establish current to the thread scheduler returned
-        current = next->tid;
         //We call activator to do the SWAPCONTEXT
         activator(next);
 
       }
-
     }
-
+    else {
+      // Shouldn't reach here. Its for depuration.
+      printf("ERROR: Found a high priotity thread while a low one was running. This shouldn't happen.\n");
+      exit(-1);
+    }
   }
-
-  //TODO SJF
   
+  // Nothing else to do for high priority threads
 }
 
 /* Activator */
@@ -337,33 +336,14 @@ void activator(TCB* next)
 {
 
   TCB * actual = running;
-  if((actual->tid) != (next->tid)){
+  //SWAPCONTEXT
+  running = next;
+  current = running->tid;
+  printf("*** SWAPCONTEXT FROM %d TO %d\n", (actual->tid), (next->tid));
 
-    //SWAPCONTEXT
-    running = next;
-    printf("*** SWAPCONTEXT FROM %d TO %d\n", (actual->tid), (next->tid));
-    if(swapcontext (&(actual->run_env), &(next->run_env))==-1){
-
-      printf("ERROR DURING THE SWAPCONTEXT!!");
-      exit(-1);
-
-    }
-
-  }
-
-  /*if((actual->tid)==FREE){
-
-    running = next;
-    printf("*** THREAD %d TERMINATED: SETCONTEXT OF %d\n", (actual->tid), (next->tid));
-    if(setcontext (&(next->run_env))==-1){
-
-      printf("ERROR DURING SETCONETXT!!");
-      exit(-1);
-
-
-    }*/
-
-
+  if(swapcontext (&(actual->run_env), &(next->run_env))==-1){
+    printf("ERROR DURING THE SWAPCONTEXT!!");
+    exit(-1);
   }
 
 }

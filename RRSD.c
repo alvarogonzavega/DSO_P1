@@ -31,12 +31,15 @@ struct queue* readyHIGH;
 //We add a third queue for blocked threads
 struct queue* waiting;
 
+// Next thread's id will have this value in order to not repeat ids.
+// Its assumed that there will never be 2^31 created threads during an execution.
+static int next_tid = 1;
+
 /* Thread control block for the idle thread */
 static TCB idle;
 
 static void idle_function()
 {
-  // TODO comprobar listos?
   while(1);
 }
 
@@ -145,7 +148,7 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
     exit(-1);
   }
 
-  t_state[i].tid = i;
+  t_state[i].tid = next_tid++;
   //We add the ticks
   t_state[i].ticks = QUANTUM_TICKS;
   t_state[i].run_env.uc_stack.ss_size = STACKSIZE;
@@ -179,7 +182,7 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
       //Finally we enable interruptions again
       enable_interrupt();
       //Print the message
-      printf("*** THREAD %i PREEMTED: SET CONTEXT OF %i\n", (running->tid), i);
+      printf("*** THREAD %i PREEMTED: SET CONTEXT OF %i\n", (running->tid), high->tid);
       //Then we call the Activator
       activator(high);
 
@@ -198,7 +201,7 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
 
   }
 
-  return i;
+  return next_tid-1;
 
 }
 /****** End my_thread_create() ******/
@@ -245,15 +248,6 @@ void disk_interrupt(int sig)
     disable_interrupt();
     //Then we dequeue the thread
     TCB* new = dequeue(waiting);
-    if((new->priority) != LOW_PRIORITY || (new->priority) != HIGH_PRIORITY){
-
-      //If the thread on the waiting list is neither High or Low priority
-      enable_interrupt();
-      printf("*** INVALID PRIORITY");
-      exit(-1);
-
-    }
-
     //If it is low priority we enqueue it on the low priority list
     if((new->priority)==LOW_PRIORITY) enqueue(readyLOW, new);
     //Otherwise we enqueue it on the high priority list
@@ -262,6 +256,15 @@ void disk_interrupt(int sig)
     enable_interrupt();
     //And print the information
     printf("*** THREAD %d READY\n", (new->tid));
+
+    // If the running thread is idle, change execution to the thread that just got ready
+    if (running->tid == -1)
+    {
+      disable_interrupt();
+      TCB* new = scheduler();
+      enable_interrupt();
+      activator(new);
+    }
 
   }
 
@@ -306,22 +309,24 @@ TCB* scheduler()
     current = idle.tid;
     return &idle;
 
-
-  }else if(queue_empty(readyHIGH) && queue_empty(readyLOW) && queue_empty(waiting)) {
+  }
+  else if(queue_empty(readyHIGH) && queue_empty(readyLOW) && queue_empty(waiting)) {
 
     //If we do not have any thread
     enable_interrupt();
     printf("*** FINISH\n");
     exit(1);
 
-  }else if(queue_empty(readyHIGH)) {
+  }
+  else if(queue_empty(readyHIGH)) {
 
     //If we do not have any High Priority threads we are in Round Robin
     //We simply pass the first element
     TCB * new = dequeue(readyLOW);
     return new;
 
-  }else{
+  }
+  else{
 
     //We have a High Priority thread
     //Find the next lowest REMAINING execution time thread in high priority
@@ -338,13 +343,12 @@ TCB* scheduler()
 
     if (new == NULL || new->priority != HIGH_PRIORITY) {
       // It shouldnt get here
-      printf("ERROR: failed at scheduler\n");
+      printf("ERROR: something went wrong at scheduler\n");
       exit(-1);
     }
 
+    return new;
   }
-
-
 }
 
 /* Sets the priority of the calling thread */
@@ -375,79 +379,60 @@ int mythread_gettid(){
 void timer_interrupt(int sig)
 {
 
-  TCB *previous;
+  // Lower the remaining ticks of any thread
   running->remaining_ticks--;
 
-  // Check if running thread is finished
-  if (running->remaining_ticks == 0) {
-    // Running thread is finished, changing to the next
-    disable_interrupt();
-    previous = running;
+  if(running->priority == LOW_PRIORITY){
 
-    // Put new thread
-    TCB * next = scheduler();
-    enable_interrupt();
-    printf("***   THREAD %i TERMINATED: SETCONTEXT OF %i", running->tid, next->tid);
-    current = next->tid;
-    activator(next);
-  }
-
-
-  // For low priority threads, reduce its slice time
-  if (running->priority == HIGH_PRIORITY) 
-  {
     running->ticks--;
 
-    if (running->ticks == 0) {
-      // Thread slice is finished, change to the next thread
-      disable_interrupt();
-      previous = running;
-      enqueue(readyLOW, previous);
+    if(queue_empty(readyHIGH)) { //If we only have Low Priority threads (as supposed)
 
-      // Put new thread
-      TCB * next = scheduler();
-      enable_interrupt();
-      printf("***   SWAPCONTEXT  FROM %i TO %i", running->tid, next->tid);
-      current = next->tid;
-      activator(next);
+      if((running->ticks)==0)
+      {
+        TCB* previous;
+        //We re-establish the ticks to QUANTUM_TICKS
+        running ->ticks = QUANTUM_TICKS;
+        //We are going to call to enqueue the actual thread
+        //So we need to disable interruptions
+        disable_interrupt();
+        //Aux to call in activator
+        previous = running;
+        //Enqueue the thread
+        enqueue(readyLOW, previous);
+        //We call scheduler to get the new thread
+        TCB * next = scheduler();
+        //We can enable interruptions now
+        enable_interrupt();
+        //We call activator to do the SWAPCONTEXT
+        activator(next);
+
+      }
+    }
+    else {
+      // Shouldn't reach here. Its for depuration.
+      printf("ERROR: Found a high priotity thread while a low one was running. This shouldn't happen.\n");
+      exit(-1);
     }
   }
-
+  
+  // Nothing else to do for high priority threads
 }
+
 
 /* Activator */
 void activator(TCB* next)
 {
 
   TCB * actual = running;
-  if((actual->tid) != (next->tid)){
+  //SWAPCONTEXT
+  running = next;
+  current = running->tid;
+  printf("*** SWAPCONTEXT FROM %d TO %d\n", (actual->tid), (next->tid));
 
-    //SWAPCONTEXT
-    running = next;
-    // TODO esto no deberia estar aqui?
-    printf("*** SWAPCONTEXT FROM %d TO %d\n", (actual->tid), (next->tid));
-    if(swapcontext (&(actual->run_env), &(next->run_env))==-1){
-
-      printf("ERROR DURING THE SWAPCONTEXT!!");
-      exit(-1);
-
-    }
-
-  }
-
-  if((actual->tid)==FREE){
-
-    running = next;
-    printf("*** THREAD %d TERMINATED: SETCONTEXT OF %d\n", (actual->tid), (next->tid));
-    if(setcontext (&(next->run_env))==-1){
-
-      printf("ERROR DURING SETCONETXT!!");
-      exit(-1);
-
-
-    }
-
-
+  if(swapcontext (&(actual->run_env), &(next->run_env))==-1){
+    printf("ERROR DURING THE SWAPCONTEXT!!");
+    exit(-1);
   }
 
 }
