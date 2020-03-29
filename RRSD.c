@@ -282,7 +282,9 @@ void disk_interrupt(int sig)
       printf(": SET CONTEXT TO %i\n", new->tid);
       activator(new);
     }
-    printf("\n");
+    else {
+      printf("\n");
+    }
 
     // Also change execution if the new thread has more priority
     if (new->priority==HIGH_PRIORITY) {
@@ -476,11 +478,11 @@ void activator(TCB* next)
   //SWAPCONTEXT
   running = next;
   current = running->tid;
-  if(actual->remaining_ticks==0 && actual->tid!=0) printf("*** THREAD %d TERMINATED: SETCONTEXT OF %d\n", actual->tid, next->tid);
+  if(actual->state!=IDLE && actual->remaining_ticks==0 && actual->tid!=0) printf("*** THREAD %d TERMINATED: SETCONTEXT OF %d\n", actual->tid, next->tid);
   else if(actual->tid != next->tid){
-    if(next->tid!=-1) printf("*** SWAPCONTEXT FROM %d TO %d\n", (actual->tid), (next->tid));
+    printf("*** SWAPCONTEXT FROM %d TO %d\n", (actual->tid), (next->tid));
   }
-
+    
   if(swapcontext (&(actual->run_env), &(next->run_env))==-1){
     printf("ERROR DURING THE SWAPCONTEXT!!");
     exit(-1);
