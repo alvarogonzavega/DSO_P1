@@ -187,18 +187,34 @@ int mythread_create (void (*fun_addr)(),int priority,int seconds)
       activator(high);
 
 
-    }else{ //The actual thread is High Priority
+    }
+    else{ //The running thread is High Priority
 
-      //First of all we disable interruptions
-      disable_interrupt();
-      //Now we enqueue the thread
-      enqueue(readyHIGH, high);
-      //Finally we enable interruptions again
-      enable_interrupt();
+      //Check SJF priority and change the running thread if it has less execution time
+      //We assume the SJF policy has to compare the remaining ticks instead of the total
+      if (running->remaining_ticks > high->execution_total_ticks) {
+        
+        //We are going to re-establish the QUANTUM_TICKS
+        running->ticks = QUANTUM_TICKS;
+        //First of all we disable interruptions
+        disable_interrupt();
+        //Now we enqueue the running thread
+
+        enqueue(readyHIGH, running);
+        //Finally we enable interruptions again
+        enable_interrupt();
+        printf("*** THREAD %i PREEMTED: SET CONTEXT OF %i\n", (running->tid), high->tid);
+        //Then we call the Activator
+        activator(high);
+        
+      }
+      else {
+        disable_interrupt();
+        enqueue(readyHIGH, high);
+        enable_interrupt();
+      }
 
     }
-
-
   }
 
   return next_tid-1;
@@ -339,11 +355,18 @@ TCB* scheduler()
       if(thr->remaining_ticks < lowest_ticks) {
         new = thr;
       }
+      seeker = seeker->next;
     }
 
     if (new == NULL || new->priority != HIGH_PRIORITY) {
       // It shouldnt get here
-      printf("ERROR: something went wrong at scheduler\n");
+      printf("ERROR: failed at scheduler\n");
+      exit(-1);
+    }
+
+    if (queue_find_remove(readyHIGH, new) == NULL) {
+      // Shouldn't get here
+      printf("ERROR: something went wrong in the scheduler\n");
       exit(-1);
     }
 
