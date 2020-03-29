@@ -267,19 +267,41 @@ void disk_interrupt(int sig)
     //If it is low priority we enqueue it on the low priority list
     if((new->priority)==LOW_PRIORITY) enqueue(readyLOW, new);
     //Otherwise we enqueue it on the high priority list
-    else enqueue(readyHIGH, new);
+    else enqueue(readyHIGH, new); //TODO swap if running has less priority
     //Now we can enable interruptions
     enable_interrupt();
     //And print the information
-    printf("*** THREAD %d READY\n", (new->tid));
+    printf("*** THREAD %d READY", (new->tid));
 
     // If the running thread is idle, change execution to the thread that just got ready
     if (running->tid == -1)
     {
       disable_interrupt();
-      TCB* new = scheduler();
+      new = scheduler();
       enable_interrupt();
+      printf(": SET CONTEXT TO %i\n", new->tid);
       activator(new);
+    }
+    printf("\n");
+
+    // Also change execution if the new thread has more priority
+    if (new->priority==HIGH_PRIORITY) {
+      if (running->priority==LOW_PRIORITY) { // Low prio swapped for a high prio
+        disable_interrupt();
+        enqueue(readyLOW, running);
+        new = scheduler();
+        enable_interrupt();
+        printf("*** THREAD %i PREEMTED: SET CONTEXT OF %i\n", (running->tid), new->tid);
+        activator(new);
+      }
+      else if (running->remaining_ticks>new->remaining_ticks) { // In high prio, shorter thread swapped
+        disable_interrupt();
+        enqueue(readyHIGH, running);
+        new = scheduler();
+        enable_interrupt();
+        printf("*** THREAD %i PREEMTED: SET CONTEXT OF %i\n", (running->tid), new->tid);
+        activator(new);
+      }
     }
 
   }
@@ -331,7 +353,7 @@ TCB* scheduler()
     //If we do not have any thread
     enable_interrupt();
     printf("*** FINISH\n");
-    exit(1);
+    exit(0);
 
   }
   else if(queue_empty(readyHIGH)) {
@@ -401,6 +423,8 @@ int mythread_gettid(){
 /* Timer interrupt */
 void timer_interrupt(int sig)
 {
+  // Dont do nothing for the idle thread
+  if (running->state==IDLE) return;
 
   // Lower the remaining ticks of any thread
   running->remaining_ticks--;
@@ -452,8 +476,7 @@ void activator(TCB* next)
   //SWAPCONTEXT
   running = next;
   current = running->tid;
-  if(actual->tid==-1) printf("*** THREAD READY: SET CONTEXT TO %d\n", next->tid);
-  else if(actual->remaining_ticks==0 && actual->tid!=0) printf("*** THREAD %d TERMINATED: SETCONTEXT OF %d\n", actual->tid, next->tid);
+  if(actual->remaining_ticks==0 && actual->tid!=0) printf("*** THREAD %d TERMINATED: SETCONTEXT OF %d\n", actual->tid, next->tid);
   else if(actual->tid != next->tid){
     if(next->tid!=-1) printf("*** SWAPCONTEXT FROM %d TO %d\n", (actual->tid), (next->tid));
   }
